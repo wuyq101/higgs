@@ -13,7 +13,10 @@ import (
 	"github.com/xlvector/higgs/extractor"
 	"github.com/xlvector/higgs/util"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -68,10 +71,12 @@ type Step struct {
 	DocType         string                 `json:"doc_type"`
 	OutputFilename  string                 `json:"output_filename"`
 	ContextOpers    []string               `json:"context_opers"`
+	PythonExtractor map[string]interface{} `json:"python_extractor"`
 	ExtractorSource string                 `json:"extractor_source"`
 	Extractor       map[string]interface{} `json:"extractor"`
 	Sleep           int                    `json:"sleep"`
 	Message         map[string]string
+	Client          *http.Client //这个client主要用来调用python的抽取服务,不适用代理,内部调用
 }
 
 func (s *Step) getPageUrls(c *context.Context) string {
@@ -93,7 +98,44 @@ func (s *Step) addContextOutputs(c *context.Context) {
 	}
 }
 
+//新的抽取方法,优先使用配置的python 抽取服务, 如果没有的话,使用原来的内置go 抽取策略
 func (s *Step) extract(body []byte, d *Downloader) {
+	if len(s.PythonExtractor) > 0 {
+		method := s.PythonExtractor["method"].(string)
+		link := config.Instance.PythonExtractorService + method
+		param := url.Values{}
+		param.Add("content", string(body))
+		req, err := http.NewRequest("POST", link, strings.NewReader(param.Encode()))
+		if err != nil {
+			dlog.Warn("extract error of %v: %v, err: %v", s.PythonExtractor, method, err)
+			return
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+		if s.Client == nil {
+			s.Client = &http.Client{
+				Timeout: time.Minute,
+			}
+		}
+		resp, err := s.Client.Do(req)
+		if err != nil {
+			dlog.Warn("extract error of %v: %v, err: %v", s.PythonExtractor, method, err)
+			return
+		}
+		var ret interface{}
+		content, err := ioutil.ReadAll(resp.Body)
+		err = json.Unmarshal(content, &ret)
+		if err != nil {
+			dlog.Warn("extract error of %v: %v, err: %v", s.PythonExtractor, method, err)
+			return
+		}
+		d.AddExtractorResult(ret)
+		return
+	}
+	s.__extract(body, d)
+}
+
+//extract 原来的抽取方法
+func (s *Step) __extract(body []byte, d *Downloader) {
 	if s.Extractor == nil || len(s.Extractor) == 0 {
 		return
 	}

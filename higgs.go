@@ -126,7 +126,7 @@ func addToSite(ret map[string]map[string]CookieEntry, site string, entry CookieE
 }
 
 func main() {
-	runtime.GOMAXPROCS(4)
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	port := flag.String("port", "8001", "port number")
 	env := flag.String("env", "prod", "env")

@@ -40,16 +40,17 @@ type Flume struct {
 }
 
 type Config struct {
-	OutputRoot           string
-	Redis                Redis
-	Captcha              Captcha
-	Templates            map[string]string
-	ES                   ES
-	Flume                Flume
-	CookieTemplateConfig map[string]map[string]*CookieTemplate
-	Buckets              map[string]string
-	UploadApi            string
-	SlackApi             string
+	OutputRoot             string
+	PythonExtractorService string
+	Redis                  Redis
+	Captcha                Captcha
+	Templates              map[string]string
+	ES                     ES
+	Flume                  Flume
+	CookieTemplateConfig   map[string]map[string]*CookieTemplate
+	Buckets                map[string]string
+	UploadApi              string
+	SlackApi               string
 }
 
 func (p Config) HasRedis() bool {
@@ -77,6 +78,8 @@ func Init(conf string) {
 	if err != nil {
 		dlog.Warn("fail to parse config: %v", err)
 	}
+	dlog.Info("OutputRoot: %s", Instance.OutputRoot)
+	dlog.Info("Python Extactor service: %s", Instance.PythonExtractorService)
 }
 
 func GetCookieTemplate(tmpl string) map[string]*CookieTemplate {
